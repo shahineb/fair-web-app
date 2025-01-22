@@ -1,13 +1,13 @@
 import os
 import pandas as pd
 from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from threading import Thread
 from src.run_fair import initialise_fair, run
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 app = Flask(__name__, static_folder="static")
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 UPLOAD_FOLDER = './uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Create folder if it doesn't exist
@@ -38,6 +38,7 @@ def serve_static(path):
 
 
 @app.route('/process', methods=['POST'])
+@cross_origin()
 def process_csv():
     global fair_model, initializing
 
