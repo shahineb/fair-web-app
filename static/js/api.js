@@ -4,6 +4,7 @@ import {
 } from './canvas.js';
 
 const saveButton = document.getElementById('saveCurve');
+const apiUrl = "https://fair-web-app-production.up.railway.app/process";
 
 saveButton.addEventListener('click', () => {
     const interpolatedPoints = cubicInterpolation(canvasState.points);
@@ -19,7 +20,7 @@ saveButton.addEventListener('click', () => {
     const formData = new FormData();
     formData.append('file', blob, 'curve_data.csv');
 
-    fetch('http://127.0.0.1:5000/process', {
+    fetch(apiUrl, {
         method: 'POST',
         body: formData
     })
