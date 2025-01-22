@@ -1,11 +1,15 @@
 import { 
     canvasState,
-    plotTimeSeries
+    plotTimeSeries,
+    ayear,
+    byear,
+    aco2,
+    bco2
 } from './canvas.js';
 
 const saveButton = document.getElementById('saveCurve');
-const apiUrl = "https://fair-web-app-production.up.railway.app/process";
-// const apiUrl = 'http://127.0.0.1:5000/process';
+// const apiUrl = "https://fair-web-app-production.up.railway.app/process";
+const apiUrl = 'http://127.0.0.1:5000/process';
 
 
 saveButton.addEventListener('click', () => {
@@ -13,14 +17,17 @@ saveButton.addEventListener('click', () => {
 
     let csvContent = "year,CO2\n";
     interpolatedPoints.forEach(point => {
-        const year = 0.223214 * point.x + 1982.4;
-        const CO2 = -0.1986754966887417 * point.y + 49.0728476821192;
+        const year = ayear * point.x + byear;
+        const CO2 = aco2 * point.y + bco2;
         csvContent += `${year.toFixed(2)},${CO2.toFixed(2)}\n`;
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const formData = new FormData();
     formData.append('file', blob, 'curve_data.csv');
+
+    const otherForcers = document.getElementById('otherForcers').value;
+    formData.append('other_forcers', otherForcers); // Add it to the form data
 
     fetch(apiUrl, {
         method: 'POST',
@@ -34,7 +41,7 @@ saveButton.addEventListener('click', () => {
     })
     .then(data => {
         console.log('Response from backend:', data);
-        plotTimeSeries(data.year, data.co2);
+        plotTimeSeries(data.year, data.co2, data.ensemble);
     })
     .catch(error => {
         console.error('Error:', error);

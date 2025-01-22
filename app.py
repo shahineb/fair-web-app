@@ -15,6 +15,7 @@ UPLOAD_FOLDER = './uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Create folder if it doesn't exist
 
 # Global variables for the two models
+other_forcers = 'ssp245'
 model_a = None
 model_b = None
 active_model = "a"  # Indicates which model is currently active
@@ -27,20 +28,20 @@ def initialise_models():
     """
     Initialize both models at startup.
     """
-    global model_a, model_b
-    model_a = initialise_fair()
-    model_b = initialise_fair()
+    global model_a, model_b, other_forcers
+    model_a = initialise_fair(other_forcers)
+    model_b = initialise_fair(other_forcers)
 
 
 def reinitialize_model(model_name):
     """
     Reinitialize the specified model.
     """
-    global model_a, model_b
+    global model_a, model_b, other_forcers
     if model_name == "a":
-        model_a = initialise_fair()
+        model_a = initialise_fair(other_forcers)
     elif model_name == "b":
-        model_b = initialise_fair()
+        model_b = initialise_fair(other_forcers)
 
 
 def switchmodel():
@@ -89,7 +90,22 @@ def process_csv():
     # # Wait if the model is being reinitialized
     # if initializing or fair_model is None:
     #     return jsonify({'error': 'System is still initializing. Please try again later.'}), 503
-    global active_model, was_used
+    global active_model, was_used, other_forcers
+
+    # Check if a file is part of the request
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+
+    file = request.files['file']
+    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(file_path)  # Save the uploaded file
+
+    # Get the other forcers value
+    requested_other_forcers = request.form.get('other_forcers', None)
+    if requested_other_forcers != other_forcers:
+        other_forcers = requested_other_forcers
+        print(f"Reinitializing models with other forcers: {other_forcers}")
+        initialise_models()
 
     # Determine the active model
     if active_model == "a":
@@ -99,14 +115,6 @@ def process_csv():
     else:
         return jsonify({'error': 'Invalid active model'}), 500
     print(f"Predicting with model {active_model}")
-
-    # Check if a file is part of the request
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
-
-    file = request.files['file']
-    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(file_path)  # Save the uploaded file
 
     # Process the CSV
     try:
@@ -129,6 +137,7 @@ def process_csv():
         return jsonify({
             'co2': list(Tbar),
             'year': list(t),
+            'ensemble': list(map(list, T.T)),
             'message': 'File processed successfully! Reinitialization started.'
         })
 

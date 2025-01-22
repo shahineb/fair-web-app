@@ -24,3 +24,11 @@ function cubicHermite(p0, p1, p2, p3, t) {
 
     return a * t ** 3 + b * t ** 2 + c * t + d;
 }
+
+function parseCSV(csvText) {
+    const rows = csvText.trim().split('\n').slice(1); // Skip header
+    return rows.map(row => {
+        const [year, emission] = row.split(',').map(Number);
+        return { year, emission };
+    });
+}

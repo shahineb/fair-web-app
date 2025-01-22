@@ -6,14 +6,39 @@ from fair.io import read_properties
 from fair.interface import fill, initialise
 
 
-
 # %%
 DEFAULT_SCENARIO = 'ssp245'
 EBM_CONFIG = 'files/4xCO2_cummins_ebm3.csv'
 VOLCANIC_FORCING = 'files/volcanic_ERF_monthly_175001-201912.csv'
 
 
-def initialise_fair():
+
+# %%
+# Preload SSPs
+# refscenarios = {'ssp119': pd.read_csv('static/csv/ssp119_co2.csv'),
+#                 'ssp245': pd.read_csv('static/csv/ssp245_co2.csv'),
+#                 'ssp585': pd.read_csv('static/csv/ssp585_co2.csv')}
+
+# def find_closest_dataframe(years, co2, refscenarios):
+#     closest = None
+#     distance = np.inf
+
+#     for name, df in refscenarios.items():
+#         # Interpolate emissions for the given years
+#         interpolated_emissions = np.interp(years, df['year'], df['emissions'])
+        
+#         # Calculate mean absolute distance
+#         mad = np.mean(np.abs(np.array(co2) - interpolated_emissions))
+        
+#         # Update closest dataframe if this one is better
+#         if mad < distance:
+#             distance = mad
+#             closest = name
+#     return closest
+
+
+
+def initialise_fair(default_scenario=DEFAULT_SCENARIO):
     # Instantiate FaIR model
     f = FAIR(ghg_method="meinshausen2020", ch4_method='thornhill2021')
     f.define_time(1750, 2101, 1)
@@ -28,14 +53,13 @@ def initialise_fair():
     f.define_configs(configs)
 
     # Define species we work with (meinshausen2020 method requires CH4 and N2O)
-    species = ['CO2', 'CH4', 'N2O', 'Volcanic']
+    species = ['CO2', 'CH4', 'N2O', 'Sulfur', 'BC', 'Volcanic']
     properties = {s: read_properties()[1][s] for s in species}
     properties['CO2']['input_mode'] = 'emissions'
     f.define_species(species, properties)
 
     # Load emission data 1750-2000 by querying an arbitrary scenario
-    scenario = 'ssp245'
-    f.define_scenarios([DEFAULT_SCENARIO])
+    f.define_scenarios([default_scenario])
     f.allocate()
     f.fill_from_rcmip()
 
@@ -91,7 +115,7 @@ def run(f, years, co2):
     f.run()
 
     # Return GMST anomaly
-    t0 = 1900
+    t0 = 1950
     t = list(range(t0, max(years) + 2))
     T = f.temperature.sel(timebounds=slice(t0, max(years) + 1)).loc[dict(scenario='custom', layer=0)].values
     Tbar = np.mean(T, axis=1)

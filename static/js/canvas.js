@@ -7,9 +7,15 @@ const clearButton = document.getElementById('clearCanvas');
 const undoButton = document.getElementById('undoAction');
 const tooltip = document.getElementById('tooltip');
 
+export const ayear = 0.26905829596412556;
+export const byear = 1958.2600896860986;
+export const aco2 = -0.46204620462046203;
+export const bco2 = 140.46864686468646;
+
 let timeSeriesChart;
 let draggingPoint = null;
 let newPointIndex = null;
+let referenceTrajectories = [];
 
 
 export function initializeCanvas() {
@@ -32,6 +38,11 @@ function adjustCanvasResolution() {
     ctx.scale(dpr, dpr);
     drawCurve();
 }
+
+function addReferenceTrajectory(trajectory) {
+    referenceTrajectories.push(trajectory);
+}
+
 
 function undoAction() {
     if (canvasState.history.length > 0) {
@@ -71,8 +82,8 @@ function getPointOnCurve(pos, threshold = 5) {
 
 
 function displayTooltip(clientX, clientY, point) {
-    const year = 0.223214 * point.x + 1982.4;
-    const CO2 = -0.1986754966887417 * point.y + 49.0728476821192;
+    const year = ayear * point.x + byear;
+    const CO2 = aco2 * point.y + bco2;
 
     tooltip.style.display = 'block';
     tooltip.style.left = `${clientX + 10}px`;
@@ -85,8 +96,11 @@ function displayTooltip(clientX, clientY, point) {
 function drawCurve() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid();
+    drawReferenceTrajectories(ctx);
     drawXAxis();
     drawYAxis();
+    drawBackgroundText('SSP1-1.9', 563, 340, {color: 'rgba(0, 0, 255, 0.5)'});
+    drawBackgroundText('SSP5-8.5', 563, 40, {color: 'rgba(0, 0, 255, 0.5)'});
 
     canvasState.points.forEach((point, index) => {
         drawPoint(point, index === canvasState.hoveredPoint);
@@ -106,8 +120,8 @@ function drawCurve() {
 }
 
 function drawGrid() {
-    const labelsX = [2000, 2020, 2040, 2060, 2080, 2100];
-    const labelsY = [-20, -10, 0, 10, 20, 30, 40];
+    const labelsX = [1980, 2000, 2020, 2040, 2060, 2080, 2100];
+    const labelsY = [-20, 0, 20, 40, 60, 80, 100, 120];
     const paddingX = 80;
     const paddingY = 50;
 
@@ -135,7 +149,7 @@ function drawXAxis() {
     ctx.font = "18px Arial";
     ctx.textAlign = "center";
 
-    const labels = [2000, 2020, 2040, 2060, 2080, 2100];
+    const labels = [1980, 2000, 2020, 2040, 2060, 2080, 2100];
     const padding = 80;
     const labelPositions = labels.map(
         (year, i) => padding + (i / (labels.length - 1)) * (canvas.width / window.devicePixelRatio - 2 * padding)
@@ -153,7 +167,7 @@ function drawYAxis() {
     ctx.font = "18px Arial";
     ctx.textAlign = "right";
 
-    const labels = [-20, -10, 0, 10, 20, 30, 40];
+    const labels = [-20, 0, 20, 40, 60, 80, 100, 120];
     const padding = 50;
     const labelPositions = labels.map(
         (value, i) => canvas.height / window.devicePixelRatio - padding - (i / (labels.length - 1)) * (canvas.height / window.devicePixelRatio - 2 * padding)
@@ -180,10 +194,52 @@ function drawPoint(point, isHovered = false) {
     ctx.fill();
 }
 
-export function plotTimeSeries(years, co2) {
+function drawReferenceTrajectories(ctx) {
+    referenceTrajectories.forEach((trajectory, index) => {
+        ctx.beginPath();
+        trajectory.forEach((point, i) => {
+            const x = (point.year - byear) / ayear; // Adjust scaling
+            const y = (point.emission - bco2) / aco2; // Adjust scaling
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        ctx.strokeStyle = `rgba(0, 0, 255, ${0.4})`; // Different opacity for each file
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    });
+}
+
+
+function drawBackgroundText(text, x, y, options = {}) {
+    const { font = '16px Arial', color = 'color: rgba(0, 0, 255, 0.4)', align = 'center' } = options;
+    ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.textAlign = align;
+    ctx.fillText(text, x, y);
+}
+
+
+export function plotTimeSeries(years, co2, ensemble) {
+    console.log(ensemble);
     if (timeSeriesChart) {
         timeSeriesChart.data.labels = years;
         timeSeriesChart.data.datasets[0].data = co2;
+
+        // Add ensemble datasets
+        ensemble.forEach(series => {
+            timeSeriesChart.data.datasets.push({
+                label: 'Ensemble Member',
+                data: series,
+                borderColor: 'rgba(255, 165, 0, 0.3)', // Light orange for ensemble
+                borderWidth: 0.5,
+                pointRadius: 0, // No points for ensemble
+                fill: false,
+            });
+        });
+
         timeSeriesChart.update();
     } else {
         const ctx = timeSeriesCanvas.getContext('2d');
@@ -197,11 +253,20 @@ export function plotTimeSeries(years, co2) {
                     borderColor: 'orange',
                     borderWidth: 0.5,
                     backgroundColor: 'rgba(255, 165, 0, 0.2)',
-                    pointRadius: 1, // Size of the dots (smaller than default)
-                    pointHoverRadius: 5, // Size of the dots when hovered
+                    pointRadius: 2, // Size of the dots (smaller than default)
+                    pointHoverRadius: 6, // Size of the dots when hovered
                     pointBackgroundColor: 'orange', // Dot color
                     pointBorderColor: 'orange', // Border color of dots
-                }]
+                },
+                ...ensemble.map(series => ({
+                    label: 'Ensemble Member',
+                    data: series,
+                    borderColor: 'rgba(255, 165, 0, 0.3)', // Light orange for ensemble
+                    borderWidth: 0.5,
+                    pointRadius: 0, // No points for ensemble
+                    fill: false,
+                }))
+                ]
             },
             options: {
                 responsive: true,
@@ -225,7 +290,29 @@ export function plotTimeSeries(years, co2) {
 }
 
 
+
+function loadReferenceTrajectory(file) {
+    fetch(file)
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.text();
+    })
+    .then(csvText => {
+        const trajectory = parseCSV(csvText); 
+        addReferenceTrajectory(trajectory);
+    })
+    .catch(error => console.error('Error loading CSV:', error));
+}
+
+
 export function initializeListeners(){
+    loadReferenceTrajectory('static/csv/historical_co2.csv')
+    loadReferenceTrajectory('static/csv/ssp119_co2.csv')
+    loadReferenceTrajectory('static/csv/ssp585_co2.csv')
+    console.log(referenceTrajectories);
+
     window.addEventListener('resize', () => {
         adjustCanvasResolution();
     });
@@ -299,5 +386,10 @@ export function initializeListeners(){
         canvasState.points = [];
         canvasState.history = [];
         tooltip.style.display = 'none';
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const dropdown = document.getElementById('otherForcers');
+        dropdown.value = 'ssp245'; // Set the default value
     });
 }
