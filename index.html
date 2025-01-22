@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interative FaIR projection</title>
+    <link rel="stylesheet" href="static/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>CO2 emissions to Global Mean Temperature Anomaly</h1>
+    <div id="mainContainer">
+        <canvas id="curveCanvas"></canvas>
+        <canvas id="timeSeriesChart"></canvas>
+    </div>
+    <div id="controls">
+        <button id="saveCurve">Project</button>
+        <button id="clearCanvas">Clear</button>
+        <button id="undoAction">Ctrl+Z</button>
+    </div>
+    <div id="tooltip"></div>
+    <script src="static/js/utils.js" defer></script>
+    <script src="static/js/main.js" type="module" defer></script>
+    <script src="static/js/api.js" type="module" defer></script>
+</body>
+</html>

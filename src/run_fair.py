@@ -9,8 +9,8 @@ from fair.interface import fill, initialise
 
 # %%
 DEFAULT_SCENARIO = 'ssp245'
-EBM_CONFIG = './4xCO2_cummins_ebm3.csv'
-VOLCANIC_FORCING = './volcanic_ERF_monthly_175001-201912.csv'
+EBM_CONFIG = 'files/4xCO2_cummins_ebm3.csv'
+VOLCANIC_FORCING = 'files/volcanic_ERF_monthly_175001-201912.csv'
 
 
 def initialise_fair():

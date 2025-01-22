@@ -1,9 +1,10 @@
-from flask import Flask, request, jsonify
-import pandas as pd
 import os
+import pandas as pd
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from threading import Thread
-from run_fair import initialise_fair, run
+from src.run_fair import initialise_fair, run
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 app = Flask(__name__)
 CORS(app)
@@ -23,6 +24,21 @@ def async_initialise_fair():
     initializing = True
     fair_model = initialise_fair()
     initializing = False
+
+
+# Route for serving static files (optional for API testing)
+@app.route('/static/<path:path>')
+def serve_static(path):
+    return send_from_directory('static', path)
+
+def start_http_server():
+    os.chdir('.')  # Ensure the root directory
+    handler = SimpleHTTPRequestHandler
+    httpd = HTTPServer(("127.0.0.1", 0), handler)  # Use port 0 to bind dynamically
+    _, port = httpd.server_address
+    print(f"Serving static files at http://127.0.0.1:{port}")
+    httpd.serve_forever()
+
 
 @app.route('/process', methods=['POST'])
 def process_csv():
@@ -67,7 +83,10 @@ def process_csv():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
+    # Start the static HTTP server in a separate thread
+    Thread(target=start_http_server, daemon=True).start()
+
     # Initialize the model once before the first request
-    port = int(os.environ.get('PORT', 4000))
+    port = int(os.environ.get('PORT', 5000))
     fair_model = initialise_fair()
     app.run(host='0.0.0.0', port=port, debug=True)
