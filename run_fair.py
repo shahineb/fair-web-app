@@ -1,8 +1,6 @@
 # %%
 import numpy as np
 import pandas as pd
-from docopt import docopt
-import matplotlib.pyplot as pl
 from fair import FAIR
 from fair.io import read_properties
 from fair.interface import fill, initialise
