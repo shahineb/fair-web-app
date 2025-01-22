@@ -6,7 +6,7 @@ from threading import Thread
 from src.run_fair import initialise_fair, run
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static")
 CORS(app)
 
 UPLOAD_FOLDER = './uploads'
@@ -26,18 +26,15 @@ def async_initialise_fair():
     initializing = False
 
 
-# Route for serving static files (optional for API testing)
+# Route for serving static files
+@app.route('/')
+def index():
+    return send_from_directory(app.static_folder, 'index.html')
+
 @app.route('/static/<path:path>')
 def serve_static(path):
-    return send_from_directory('static', path)
-
-def start_http_server():
-    os.chdir('.')  # Ensure the root directory
-    handler = SimpleHTTPRequestHandler
-    httpd = HTTPServer(("127.0.0.1", 0), handler)  # Use port 0 to bind dynamically
-    _, port = httpd.server_address
-    print(f"Serving static files at http://127.0.0.1:{port}")
-    httpd.serve_forever()
+    """Serve static files from the 'static' directory."""
+    return send_from_directory(app.static_folder, path)
 
 
 @app.route('/process', methods=['POST'])
@@ -83,9 +80,6 @@ def process_csv():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    # Start the static HTTP server in a separate thread
-    Thread(target=start_http_server, daemon=True).start()
-
     # Initialize the model once before the first request
     port = int(os.environ.get('PORT', 5000))
     fair_model = initialise_fair()
