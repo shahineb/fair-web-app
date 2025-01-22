@@ -1,29 +1,73 @@
 import os
+import time
 import pandas as pd
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS, cross_origin
+import threading
 from threading import Thread
 from src.run_fair import initialise_fair, run
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 app = Flask(__name__, static_folder="static")
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 
 UPLOAD_FOLDER = './uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Create folder if it doesn't exist
 
-# Global variable to store the initialized `f`
-fair_model = None
-initializing = False
+# Global variables for the two models
+model_a = None
+model_b = None
+active_model = "a"  # Indicates which model is currently active
+was_used = {"a": False, "b": False}  # Tracks which model has been used
+is_ready = {"a": False, "b": False}  # Tracks which model is ready
+lock = threading.Lock()
 
-def async_initialise_fair():
+
+def initialise_models():
     """
-    Initialize `fair` in a background thread to avoid blocking the application.
+    Initialize both models at startup.
     """
-    global fair_model, initializing
-    initializing = True
-    fair_model = initialise_fair()
-    initializing = False
+    global model_a, model_b
+    model_a = initialise_fair()
+    model_b = initialise_fair()
+
+
+def reinitialize_model(model_name):
+    """
+    Reinitialize the specified model.
+    """
+    global model_a, model_b
+    if model_name == "a":
+        model_a = initialise_fair()
+    elif model_name == "b":
+        model_b = initialise_fair()
+
+
+def switchmodel():
+    global active_model
+    if active_model == "a":
+        active_model = "b"
+    elif active_model == "b":
+        active_model = "a"
+
+def daemon_reinitializer():
+    """
+    Background daemon that reinitializes the inactive model if it has been used.
+    """
+    while True:
+        time.sleep(1)  # Check every 5 seconds
+        with lock:
+            if was_used["a"]:
+                print("Reinitializing Model A...")
+                reinitialize_model("a")
+                print("Model A ready")
+                was_used["a"] = False
+            elif was_used["b"]:
+                print("Reinitializing Model B...")
+                reinitialize_model("b")
+                print("Model B ready")
+                was_used["b"] = False
+
 
 
 # Route for serving static files
@@ -40,11 +84,21 @@ def serve_static(path):
 @app.route('/process', methods=['POST'])
 @cross_origin()
 def process_csv():
-    global fair_model, initializing
+    # global fair_model, initializing
 
-    # Wait if the model is being reinitialized
-    if initializing or fair_model is None:
-        return jsonify({'error': 'System is still initializing. Please try again later.'}), 503
+    # # Wait if the model is being reinitialized
+    # if initializing or fair_model is None:
+    #     return jsonify({'error': 'System is still initializing. Please try again later.'}), 503
+    global active_model, was_used
+
+    # Determine the active model
+    if active_model == "a":
+        fair_model = model_a
+    elif active_model == "b":
+        fair_model = model_b
+    else:
+        return jsonify({'error': 'Invalid active model'}), 500
+    print(f"Predicting with model {active_model}")
 
     # Check if a file is part of the request
     if 'file' not in request.files:
@@ -66,9 +120,10 @@ def process_csv():
         years = df['year'].values
         t, T, Tbar = run(fair_model, years, co2)
 
-        # Start reinitialization in the background
-        thread = Thread(target=async_initialise_fair)
-        thread.start()
+        with lock:
+            was_used[active_model] = True
+            switchmodel()
+            print(f"Switched to Model {active_model}")   
 
         # Return the result as JSON
         return jsonify({
@@ -82,6 +137,8 @@ def process_csv():
 
 if __name__ == '__main__':
     # Initialize the model once before the first request
+    initialise_models()
+    daemon_thread = threading.Thread(target=daemon_reinitializer, daemon=True)
+    daemon_thread.start()
     port = int(os.environ.get('PORT', 5000))
-    fair_model = initialise_fair()
     app.run(host='0.0.0.0', port=port, debug=True)

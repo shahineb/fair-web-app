@@ -5,6 +5,8 @@ import {
 
 const saveButton = document.getElementById('saveCurve');
 const apiUrl = "https://fair-web-app-production.up.railway.app/process";
+// const apiUrl = 'http://127.0.0.1:5000/process';
+
 
 saveButton.addEventListener('click', () => {
     const interpolatedPoints = cubicInterpolation(canvasState.points);
