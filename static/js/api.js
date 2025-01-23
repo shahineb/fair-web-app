@@ -4,12 +4,13 @@ import {
     ayear,
     byear,
     aco2,
-    bco2
+    bco2,
+    getSelectedModels
 } from './canvas.js';
 
 const saveButton = document.getElementById('saveCurve');
-// const apiUrl = "https://fair-web-app-production.up.railway.app/process";
-const apiUrl = 'http://127.0.0.1:5000/process';
+const apiUrl = "https://fair-web-app-production.up.railway.app/process";
+// const apiUrl = 'http://127.0.0.1:5000/process';
 
 
 saveButton.addEventListener('click', () => {
@@ -27,7 +28,10 @@ saveButton.addEventListener('click', () => {
     formData.append('file', blob, 'curve_data.csv');
 
     const otherForcers = document.getElementById('otherForcers').value;
-    formData.append('other_forcers', otherForcers); // Add it to the form data
+    formData.append('other_forcers', otherForcers);
+
+    const selectedModels = getSelectedModels();
+    formData.append('models', JSON.stringify(selectedModels));
 
     fetch(apiUrl, {
         method: 'POST',
@@ -41,7 +45,7 @@ saveButton.addEventListener('click', () => {
     })
     .then(data => {
         console.log('Response from backend:', data);
-        plotTimeSeries(data.year, data.co2, data.ensemble);
+        plotTimeSeries(data.year, data.co2, data.ensemble, data.ecs);
     })
     .catch(error => {
         console.error('Error:', error);

@@ -10,46 +10,27 @@ from fair.interface import fill, initialise
 DEFAULT_SCENARIO = 'ssp245'
 EBM_CONFIG = 'files/4xCO2_cummins_ebm3.csv'
 VOLCANIC_FORCING = 'files/volcanic_ERF_monthly_175001-201912.csv'
+df = pd.read_csv(EBM_CONFIG)
+DEFAULT_ESMs = df['model'].unique()
 
+
+def get_ebm_configs(esms):
+    ebm_configs = []
+    for model in esms:
+        for run in df.loc[df['model']==model, 'run']:
+            ebm_configs.append(f"{model}_{run}")
+    return ebm_configs
 
 
 # %%
-# Preload SSPs
-# refscenarios = {'ssp119': pd.read_csv('static/csv/ssp119_co2.csv'),
-#                 'ssp245': pd.read_csv('static/csv/ssp245_co2.csv'),
-#                 'ssp585': pd.read_csv('static/csv/ssp585_co2.csv')}
 
-# def find_closest_dataframe(years, co2, refscenarios):
-#     closest = None
-#     distance = np.inf
-
-#     for name, df in refscenarios.items():
-#         # Interpolate emissions for the given years
-#         interpolated_emissions = np.interp(years, df['year'], df['emissions'])
-        
-#         # Calculate mean absolute distance
-#         mad = np.mean(np.abs(np.array(co2) - interpolated_emissions))
-        
-#         # Update closest dataframe if this one is better
-#         if mad < distance:
-#             distance = mad
-#             closest = name
-#     return closest
-
-
-
-def initialise_fair(default_scenario=DEFAULT_SCENARIO):
+def initialise_fair(default_scenario=DEFAULT_SCENARIO, esms=DEFAULT_ESMs):
     # Instantiate FaIR model
     f = FAIR(ghg_method="meinshausen2020", ch4_method='thornhill2021')
     f.define_time(1750, 2101, 1)
 
     # Load energy balance model configs tuned against 66 different ESMs
-    df = pd.read_csv(EBM_CONFIG)
-    models = df['model'].unique()
-    configs = []
-    for imodel, model in enumerate(models):
-        for run in df.loc[df['model']==model, 'run']:
-            configs.append(f"{model}_{run}")
+    configs = get_ebm_configs([x.split()[0] for x in esms])
     f.define_configs(configs)
 
     # Define species we work with (meinshausen2020 method requires CH4 and N2O)
@@ -114,12 +95,15 @@ def run(f, years, co2):
     # Run fair for each set of energy balance model configs
     f.run()
 
+    # Compute ECS
+    ECS = round(f.ebms.ecs.mean().item(), 2)
+
     # Return GMST anomaly
     t0 = 1950
     t = list(range(t0, max(years) + 2))
     T = f.temperature.sel(timebounds=slice(t0, max(years) + 1)).loc[dict(scenario='custom', layer=0)].values
     Tbar = np.mean(T, axis=1)
-    return t, T, Tbar
+    return t, T, Tbar, ECS
 
 
 # # %%

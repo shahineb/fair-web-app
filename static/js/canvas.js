@@ -222,23 +222,34 @@ function drawBackgroundText(text, x, y, options = {}) {
 }
 
 
-export function plotTimeSeries(years, co2, ensemble) {
-    console.log(ensemble);
+export function plotTimeSeries(years, co2, ensemble, ecs) {
     if (timeSeriesChart) {
         timeSeriesChart.data.labels = years;
         timeSeriesChart.data.datasets[0].data = co2;
+        timeSeriesChart.options.plugins.title.text = `ECS: ${ecs.toFixed(2)}°C`;
 
-        // Add ensemble datasets
-        ensemble.forEach(series => {
-            timeSeriesChart.data.datasets.push({
-                label: 'Ensemble Member',
-                data: series,
-                borderColor: 'rgba(255, 165, 0, 0.3)', // Light orange for ensemble
-                borderWidth: 0.5,
-                pointRadius: 0, // No points for ensemble
-                fill: false,
-            });
+        // Update existing ensemble datasets or add them if they don't exist
+        ensemble.forEach((series, index) => {
+            if (timeSeriesChart.data.datasets[index + 1]) {
+                // Update existing dataset
+                timeSeriesChart.data.datasets[index + 1].data = series;
+            } else {
+                // Add new dataset if it doesn't exist
+                timeSeriesChart.data.datasets.push({
+                    label: 'Ensemble Member',
+                    data: series,
+                    borderColor: 'rgba(255, 165, 0, 0.3)', // Light orange for ensemble
+                    borderWidth: 0.5,
+                    pointRadius: 0, // No points for ensemble
+                    fill: false,
+                });
+            }
         });
+
+        // Remove extra datasets if the new ensemble is smaller
+        if (timeSeriesChart.data.datasets.length > ensemble.length + 1) {
+            timeSeriesChart.data.datasets.splice(ensemble.length + 1);
+        }
 
         timeSeriesChart.update();
     } else {
@@ -248,7 +259,7 @@ export function plotTimeSeries(years, co2, ensemble) {
             data: {
                 labels: years,
                 datasets: [{
-                    label: 'ΔT (C)',
+                    label: 'ΔT (°C)',
                     data: co2,
                     borderColor: 'orange',
                     borderWidth: 0.5,
@@ -272,6 +283,12 @@ export function plotTimeSeries(years, co2, ensemble) {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
+                    title: {
+                        display: true,
+                        text: `ECS: ${ecs.toFixed(2)}°C`,
+                        color: 'black',
+                        font: { size: 20 },
+                    },
                     legend: {
                         display: false // Disable the legend
                     }
@@ -280,7 +297,7 @@ export function plotTimeSeries(years, co2, ensemble) {
                     x: { title: { display: true, text: 'Year', color: 'black', font: {size: 18}},
                          ticks: { color: 'black', font: {size: 16}}
                     },
-                    y: { title: { display: true, text: 'ΔT (C)', color: 'black', font: {size: 18}},
+                    y: { title: { display: true, text: 'ΔT (°C)', color: 'black', font: {size: 18}},
                          ticks: { color: 'black', font: {size: 16}}
                     }
                 }
@@ -392,4 +409,45 @@ export function initializeListeners(){
         const dropdown = document.getElementById('otherForcers');
         dropdown.value = 'ssp245'; // Set the default value
     });
+
+    document.addEventListener('click', (event) => {
+        if (!dropdownButton.contains(event.target) && !dropdownContent.contains(event.target)) {
+            dropdownContent.classList.remove('show');
+        }
+    });    
+}
+
+
+
+
+// List of models
+const models = ['MIROC-ES2L (1.8 K)', 'MIROC6 (2.0 K)', 'IITM-ESM (2.0 K)', 'GISS-E2-2-G (2.0 K)', 'NorESM2-MM (2.0 K)', 'CAMS-CSM1-0 (2.1 K)', 'NorESM2-LM (2.5 K)', 'INM-CM4-8 (2.5 K)', 'INM-CM5-0 (2.6 K)', 'GISS-E2-1-G (2.7 K)', 'FGOALS-f3-L (2.7 K)', 'MPI-ESM1-2-LR (2.8 K)', 'GFDL-ESM4 (2.9 K)', 'GISS-E2-1-H (3.0 K)', 'MPI-ESM-1-2-HAM (3.1 K)', 'FGOALS-g3 (3.2 K)', 'AWI-CM-1-1-MR (3.3 K)', 'CNRM-CM6-1 (3.4 K)', 'MPI-ESM1-2-HR (3.4 K)', 'MRI-ESM2-0 (3.6 K)', 'CMCC-CM2-SR5 (3.7 K)', 'BCC-CSM2-MR (3.8 K)', 'SAM0-UNICON (3.8 K)', 'NorCPM1 (3.9 K)', 'EC-Earth3-Veg (3.9 K)', 'GFDL-CM4 (4.0 K)', 'NESM3 (4.2 K)', 'FIO-ESM-2-0 (4.2 K)', 'CNRM-CM6-1-HR (4.3 K)', 'KIOST-ESM (4.3 K)', 'CAS-ESM2-0 (4.3 K)', 'EC-Earth3 (4.3 K)', 'BCC-ESM1 (4.5 K)', 'TaiESM1 (4.6 K)', 'KACE-1-0-G (5.5 K)', 'CESM2-WACCM (5.6 K)', 'IPSL-CM6A-LR (5.6 K)', 'ACCESS-ESM1-5 (5.7 K)', 'CIESM (5.9 K)', 'ACCESS-CM2 (6.0 K)', 'CNRM-ESM2-1 (6.0 K)', 'UKESM1-0-LL (6.1 K)', 'CESM2 (6.2 K)', 'HadGEM3-GC31-MM (6.2 K)', 'CanESM5 (6.4 K)', 'HadGEM3-GC31-LL (6.5 K)', 'E3SM-1-0 (6.8 K)', 'CESM2-WACCM-FV2 (7.1 K)', 'CESM2-FV2 (7.4 K)'];
+
+// Populate the multi-select dropdown
+const dropdownContent = document.querySelector('.dropdown-content');
+models.forEach(model => {
+    const label = document.createElement('label');
+    label.innerHTML = `
+        <input type="checkbox" name="models" value="${model}" checked> ${model}
+    `;
+    dropdownContent.appendChild(label);
+});
+
+// Toggle dropdown visibility
+const dropdownButton = document.getElementById('dropdownButton');
+dropdownButton.addEventListener('click', () => {
+    dropdownContent.classList.toggle('show');
+});
+
+
+// Get selected models
+export function getSelectedModels() {
+    const checkboxes = dropdownContent.querySelectorAll('input[type="checkbox"]');
+    const selectedModels = [];
+    checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            selectedModels.push(checkbox.value);
+        }
+    });
+    return selectedModels;
 }

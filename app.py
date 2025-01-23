@@ -1,11 +1,12 @@
 import os
 import time
+import ast
 import pandas as pd
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS, cross_origin
 import threading
 from threading import Thread
-from src.run_fair import initialise_fair, run
+from src.run_fair import initialise_fair, run, DEFAULT_ESMs, get_ebm_configs
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 app = Flask(__name__, static_folder="static")
@@ -16,6 +17,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Create folder if it doesn't exist
 
 # Global variables for the two models
 other_forcers = 'ssp245'
+esms = DEFAULT_ESMs
 model_a = None
 model_b = None
 active_model = "a"  # Indicates which model is currently active
@@ -28,20 +30,20 @@ def initialise_models():
     """
     Initialize both models at startup.
     """
-    global model_a, model_b, other_forcers
-    model_a = initialise_fair(other_forcers)
-    model_b = initialise_fair(other_forcers)
+    global model_a, model_b, other_forcers, esms
+    model_a = initialise_fair(other_forcers, esms)
+    model_b = initialise_fair(other_forcers, esms)
 
 
 def reinitialize_model(model_name):
     """
     Reinitialize the specified model.
     """
-    global model_a, model_b, other_forcers
+    global model_a, model_b, other_forcers, esms
     if model_name == "a":
-        model_a = initialise_fair(other_forcers)
+        model_a = initialise_fair(other_forcers, esms)
     elif model_name == "b":
-        model_b = initialise_fair(other_forcers)
+        model_b = initialise_fair(other_forcers, esms)
 
 
 def switchmodel():
@@ -85,12 +87,8 @@ def serve_static(path):
 @app.route('/process', methods=['POST'])
 @cross_origin()
 def process_csv():
-    # global fair_model, initializing
-
     # # Wait if the model is being reinitialized
-    # if initializing or fair_model is None:
-    #     return jsonify({'error': 'System is still initializing. Please try again later.'}), 503
-    global active_model, was_used, other_forcers
+    global active_model, was_used, other_forcers, esms
 
     # Check if a file is part of the request
     if 'file' not in request.files:
@@ -100,10 +98,13 @@ def process_csv():
     file_path = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(file_path)  # Save the uploaded file
 
-    # Get the other forcers value
+    # Get the other forcers value and list of ESMs
     requested_other_forcers = request.form.get('other_forcers', None)
-    if requested_other_forcers != other_forcers:
+    requested_esms = ast.literal_eval(request.form.get('models', None))
+    if (requested_other_forcers != other_forcers) or (set(requested_esms) != set(esms)):
         other_forcers = requested_other_forcers
+        esms = requested_esms
+        print(f"Reinitializing models with {len(esms)} ESMs")
         print(f"Reinitializing models with other forcers: {other_forcers}")
         initialise_models()
 
@@ -126,7 +127,7 @@ def process_csv():
 
         co2 = df['CO2'].values
         years = df['year'].values
-        t, T, Tbar = run(fair_model, years, co2)
+        t, T, Tbar, ECS = run(fair_model, years, co2)
 
         with lock:
             was_used[active_model] = True
@@ -138,6 +139,7 @@ def process_csv():
             'co2': list(Tbar),
             'year': list(t),
             'ensemble': list(map(list, T.T)),
+            'ecs': ECS,
             'message': 'File processed successfully! Reinitialization started.'
         })
 

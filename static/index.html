@@ -25,10 +25,25 @@
             <option value="ssp370">ssp370</option>
             <option value="ssp585">ssp585</option>
         </select>
+        <div id="multiSelectContainer">
+            <label for="multiSelect" style="margin-left: 15px;">Models:</label>
+            <div id="multiSelect" class="dropdown">
+                <button class="dropdown-button" id="dropdownButton">Select by ECS</button>
+                <div class="dropdown-content">
+                    <!-- Options will be added dynamically -->
+                </div>
+            </div>
+        </div>
     </div>
     <div id="tooltip"></div>
     <script src="static/js/utils.js" defer></script>
     <script src="static/js/main.js" type="module" defer></script>
     <script src="static/js/api.js" type="module" defer></script>
 </body>
+<footer>
+    <p style="text-align: center; margin-top: 20px; font-size: 14px; color: #555;">
+        Projections computed using <a href="https://github.com/OMS-NetZero/FAIR" target="_blank" style="color: #007BFF;">FaIR</a>.
+        Other forcers include CH4, N2O, Sulfur and BC. Link to the <a href="https://github.com/shahineb/fair-web-app" target="_blank" style="color: #007BFF;">code</a>.
+    </p>
+</footer>
 </html>
